@@ -1,7 +1,7 @@
 # Turkish translation for GNN Sitemap.
 msgid ""
 msgstr ""
-"Project-Id-Version: GNN Sitemap 1.0.3\n"
+"Project-Id-Version: GNN Sitemap 1.0.4\n"
 "Report-Msgid-Bugs-To: https://github.com/BigDesigner/gnn-sitemap/issues\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"

@@ -26,7 +26,6 @@ class GNN_Sitemap_Updater {
 
         add_filter( 'pre_set_site_transient_update_plugins', array( $this, 'check_for_update' ) );
         add_filter( 'plugins_api', array( $this, 'plugins_api' ), 10, 3 );
-        add_filter( 'upgrader_post_install', array( $this, 'fix_folder_name' ), 10, 3 );
         add_action( 'admin_init', array( $this, 'maybe_handle_manual_check' ) );
     }
 
@@ -58,14 +57,17 @@ class GNN_Sitemap_Updater {
         }
 
         $release = array(
-            'version'     => ltrim( $body['tag_name'], 'v' ),
-            'download'    => isset( $body['zipball_url'] ) ? $body['zipball_url'] : '',
-            'changelog'   => isset( $body['body'] ) ? $body['body'] : '',
-            'html_url'    => isset( $body['html_url'] ) ? $body['html_url'] : '',
-            'published'   => isset( $body['published_at'] ) ? $body['published_at'] : '',
+            'version'   => ltrim( $body['tag_name'], 'v' ),
+            'download'  => '',
+            'changelog' => isset( $body['body'] ) ? $body['body'] : '',
+            'html_url'  => isset( $body['html_url'] ) ? $body['html_url'] : '',
+            'published' => isset( $body['published_at'] ) ? $body['published_at'] : '',
         );
 
-        // If the release has an attached .zip asset (added by release.yml), prefer it over the zipball.
+        // Only use the .zip asset attached by release.yml (already named "gnn-sitemap").
+        // GitHub's auto-generated zipball ("{repo}-{tag}" folder name) is intentionally
+        // never used as a fallback: without a folder rename step, installing it would
+        // put the plugin under the wrong slug.
         if ( ! empty( $body['assets'] ) && is_array( $body['assets'] ) ) {
             foreach ( $body['assets'] as $asset ) {
                 if ( isset( $asset['browser_download_url'] ) && substr( $asset['browser_download_url'], -4 ) === '.zip' ) {
@@ -124,40 +126,6 @@ class GNN_Sitemap_Updater {
             ),
             'download_link' => $release['download'],
         );
-    }
-
-    /**
-     * Our release .zip (built by release.yml) already ships with the correct
-     * "gnn-sitemap" top-level folder, so this is normally a no-op. It only
-     * kicks in as a fallback if GitHub's auto-generated zipball
-     * ("{repo}-{tag}") is ever used instead, which would otherwise install
-     * under the wrong folder name and make WordPress treat it as a brand
-     * new plugin.
-     *
-     * Note: this must NOT call activate_plugin()/include the plugin file.
-     * The current request already has this plugin's functions/constants
-     * loaded in memory; re-including the file here would redeclare them and
-     * fatal mid-upgrade, leaving the plugin directory in a broken state
-     * ("Plugin file does not exist"). Since the folder path is unchanged in
-     * the normal case, WordPress's own "active_plugins" option entry is
-     * still valid — nothing needs to be reactivated.
-     */
-    public function fix_folder_name( $response, $hook_extra, $result ) {
-        if ( empty( $hook_extra['plugin'] ) || $hook_extra['plugin'] !== $this->plugin_slug ) {
-            return $response;
-        }
-
-        global $wp_filesystem;
-
-        $target_dir = trailingslashit( WP_PLUGIN_DIR ) . $this->slug;
-        $source_dir = $result['destination'];
-
-        if ( $source_dir !== $target_dir && $wp_filesystem && $wp_filesystem->exists( $source_dir ) ) {
-            $wp_filesystem->move( $source_dir, $target_dir, true );
-            $result['destination'] = $target_dir;
-        }
-
-        return $result;
     }
 
     public function maybe_handle_manual_check() {
