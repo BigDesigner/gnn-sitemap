@@ -1,0 +1,115 @@
+# Turkish translation for GNN Sitemap.
+msgid ""
+msgstr ""
+"Project-Id-Version: GNN Sitemap 1.0.0\n"
+"Report-Msgid-Bugs-To: https://github.com/BigDesigner/gnn-sitemap/issues\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: tr_TR\n"
+"X-Domain: gnn-sitemap\n"
+
+msgid "Uses WordPress core sitemap infrastructure. Adds a /sitemap.xml alias and lets you choose which post types, taxonomies, and users are included from the admin panel."
+msgstr "WordPress çekirdeğinin sitemap altyapısını kullanır. /sitemap.xml alias'ı ekler ve yönetim panelinden hangi post type, taxonomy ve kullanıcıların dahil edileceğini seçtirir."
+
+msgid "GNN Sitemap:"
+msgstr "GNN Sitemap:"
+
+msgid "The core sitemap infrastructure was disabled by another plugin, so the /sitemap.xml alias redirect is disabled."
+msgstr "Çekirdek sitemap altyapısı başka bir eklenti tarafından devre dışı bırakıldığı için /sitemap.xml alias yönlendirmesi devre dışı."
+
+msgid "Detected: %s."
+msgstr "Tespit edilen: %s."
+
+msgid "Another sitemap-generating plugin was detected (%s). If you notice a conflict (duplicate sitemap, robots.txt line, etc.), you can disable this plugin."
+msgstr "Sitemap üreten bir eklenti daha tespit edildi (%s). Çakışma olursa (yinelenen sitemap, robots.txt satırı vb.) bu eklentiyi devre dışı bırakabilirsiniz."
+
+msgid "GNN Sitemap - Settings"
+msgstr "GNN Sitemap - Ayarlar"
+
+msgid "Donate"
+msgstr "Bağış Yap"
+
+msgid "Settings"
+msgstr "Ayarlar"
+
+msgid "Check Updates"
+msgstr "Güncellemeleri Denetle"
+
+msgid "Settings saved."
+msgstr "Ayarlar kaydedildi."
+
+msgid "Uses core's wp-sitemap.xml output. A request to /sitemap.xml is redirected with a 301."
+msgstr "Çekirdeğin wp-sitemap.xml çıktısı kullanılır. /sitemap.xml isteği 301 ile yönlendirilir."
+
+msgid "Core Sitemap"
+msgstr "Çekirdek Sitemap"
+
+msgid "Alias"
+msgstr "Alias"
+
+msgid "Disabled"
+msgstr "Devre dışı"
+
+msgid "core sitemap was disabled by another plugin"
+msgstr "çekirdek sitemap başka bir eklenti tarafından kapatıldı"
+
+msgid "Summary"
+msgstr "Özet"
+
+msgid "Source"
+msgstr "Kaynak"
+
+msgid "Included item count"
+msgstr "Dahil edilen içerik sayısı"
+
+msgid "Authors (users)"
+msgstr "Yazarlar (users)"
+
+msgid "Excluded ID count"
+msgstr "Hariç tutulan ID sayısı"
+
+msgid "Post Type Selection"
+msgstr "Post Type Seçimi"
+
+msgid "Choose which post types to include."
+msgstr "Dahil edilecek post type'ları seç."
+
+msgid "Taxonomy Selection"
+msgstr "Taxonomy Seçimi"
+
+msgid "Choose which taxonomies to include (category, tag, etc.)."
+msgstr "Dahil edilecek taxonomy'leri seç (kategori, etiket vb.)."
+
+msgid "Users"
+msgstr "Users"
+
+msgid "Include author archives (users)"
+msgstr "Yazar arşivlerini (users) dahil et"
+
+msgid "Exclude by ID"
+msgstr "ID Bazlı Hariç Tutma"
+
+msgid "Post/page IDs to exclude from the sitemap, separated by commas, spaces, or newlines (e.g. %s)."
+msgstr "Sitemap'ten çıkarılacak yazı/sayfa ID'lerini virgül, boşluk ya da yeni satırla ayırarak gir (ör. %s)."
+
+msgid "Save"
+msgstr "Kaydet"
+
+msgid "Note: clicking \"Save\" on the %s screen usually fixes it if the alias isn't showing up (rewrite flush)."
+msgstr "Not: %s sayfasında \"Kaydet\" demek, alias görünmüyorsa çoğu zaman sorunu çözer (rewrite flush)."
+
+msgid "Settings → Permalinks"
+msgstr "Ayarlar → Kalıcı Bağlantılar"
+
+msgid "GNN Sitemap - Network Defaults"
+msgstr "GNN Sitemap - Ağ Varsayılanları"
+
+msgid "Network Defaults"
+msgstr "Ağ Varsayılanları"
+
+msgid "This template only applies as the default for sites that have not saved their own settings yet; each site can still override it from its own Settings screen."
+msgstr "Bu şablon yalnızca henüz kendi ayarını kaydetmemiş siteler için varsayılan olarak uygulanır; her site kendi Ayarlar sayfasından bunu geçersiz kılabilir."
+
+msgid "Network defaults saved."
+msgstr "Ağ varsayılanları kaydedildi."

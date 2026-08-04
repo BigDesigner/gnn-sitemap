@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build clean plugin folder
+        run: |
+          mkdir -p build/gnn-sitemap
+          rsync -a --exclude='.git' --exclude='.github' --exclude='build' \
+            --exclude='.gitignore' --exclude='.antigravity' \
+            ./ build/gnn-sitemap/
+
+      - name: Zip plugin
+        run: |
+          cd build
+          zip -r "gnn-sitemap-${{ steps.version.outputs.version }}.zip" gnn-sitemap
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body: |
+            GNN Sitemap ${{ github.ref_name }}
+
+            The built package is attached.
+          files: build/gnn-sitemap-${{ steps.version.outputs.version }}.zip
