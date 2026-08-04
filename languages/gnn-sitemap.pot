@@ -2,7 +2,7 @@
 # This file is distributed under the same license as the GNN Sitemap plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: GNN Sitemap 1.0.0\n"
+"Project-Id-Version: GNN Sitemap 1.0.1\n"
 "Report-Msgid-Bugs-To: https://github.com/BigDesigner/gnn-sitemap/issues\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -149,4 +149,16 @@ msgstr ""
 
 #: gnn-sitemap.php
 msgid "Network defaults saved."
+msgstr ""
+
+#: gnn-sitemap.php
+msgid "Sitemap regenerated: rewrite rules and any detected page cache were flushed."
+msgstr ""
+
+#: gnn-sitemap.php
+msgid "Force Regenerate"
+msgstr ""
+
+#: gnn-sitemap.php
+msgid "If the sitemap or its stylesheet looks broken or stale (e.g. an XML parsing error), use this to flush rewrite rules and any detected page cache."
 msgstr ""

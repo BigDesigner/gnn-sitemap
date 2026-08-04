@@ -2,7 +2,7 @@
 /*
 Plugin Name: GNN Sitemap
 Description: Uses WordPress core sitemap infrastructure. Adds a /sitemap.xml alias and lets you choose which post types, taxonomies, and users are included from the admin panel.
-Version: 1.0.0
+Version: 1.0.1
 Author: GNN
 Requires at least: 5.5
 Requires PHP: 7.4
@@ -17,7 +17,7 @@ const GNN_SITEMAP_OPT = 'gnn_sitemap_settings';
 
 // GNN plugin standard: file/version constants (used by action links and updater).
 define( 'GNN_SITEMAP_FILE', __FILE__ );
-define( 'GNN_SITEMAP_VERSION', trim( (string) @file_get_contents( __DIR__ . '/VERSION' ) ) ?: '1.0.0' );
+define( 'GNN_SITEMAP_VERSION', trim( (string) @file_get_contents( __DIR__ . '/VERSION' ) ) ?: '1.0.1' );
 
 add_action( 'init', function () {
     load_plugin_textdomain( 'gnn-sitemap', false, dirname( plugin_basename( GNN_SITEMAP_FILE ) ) . '/languages' );
@@ -33,6 +33,27 @@ if ( defined('WP_CLI') && WP_CLI ) {
 }
 
 /** ---------- Helpers ---------- */
+
+/**
+ * Forces a fresh sitemap: flushes rewrite rules and, when detected, purges
+ * well-known caching plugins/hosts so a stale or previously-broken sitemap
+ * response (e.g. mangled by a minifier) isn't served from cache. Shared by
+ * the "Force Regenerate" button and the WP-CLI `flush` command.
+ */
+function gnn_sitemap_force_regenerate() {
+    flush_rewrite_rules( true );
+
+    if ( function_exists( 'rocket_clean_domain' ) ) { rocket_clean_domain(); }
+    if ( function_exists( 'w3tc_flush_all' ) ) { w3tc_flush_all(); }
+    if ( function_exists( 'wp_cache_clear_cache' ) ) { wp_cache_clear_cache(); }
+    if ( function_exists( 'litespeed_purge_all' ) ) { litespeed_purge_all(); }
+    if ( class_exists( 'WpeCommon' ) ) {
+        if ( method_exists( 'WpeCommon', 'purge_varnish_cache' ) ) { WpeCommon::purge_varnish_cache(); }
+        if ( method_exists( 'WpeCommon', 'purge_memcached' ) ) { WpeCommon::purge_memcached(); }
+    }
+
+    do_action( 'gnn_sitemap_force_regenerate' );
+}
 
 function gnn_sitemap_safe_array_of_names( $arr ) {
     // Core may return a flat array ["post","page"] or an assoc array ["post"=>obj, "page"=>obj].
@@ -369,6 +390,11 @@ function gnn_sitemap_render_settings_page() {
     $available_tx  = get_taxonomies( array( 'public' => true ), 'objects' );
     $settings      = gnn_sitemap_get_settings();
 
+    if ( isset($_POST['gnn_sitemap_regenerate']) && check_admin_referer('gnn_sitemap_regenerate') ) {
+        gnn_sitemap_force_regenerate();
+        echo '<div class="updated notice"><p>' . esc_html__( 'Sitemap regenerated: rewrite rules and any detected page cache were flushed.', 'gnn-sitemap' ) . '</p></div>';
+    }
+
     if ( isset($_POST['gnn_sitemap_submit']) && check_admin_referer('gnn_sitemap_save') ) {
         $new                  = array();
         $new['post_types']    = isset($_POST['post_types']) ? array_map('sanitize_key', (array) $_POST['post_types']) : array();
@@ -416,6 +442,12 @@ function gnn_sitemap_render_settings_page() {
           </tr>
         </tbody>
       </table>
+
+      <form method="post" style="margin-top:12px;">
+        <?php wp_nonce_field('gnn_sitemap_regenerate'); ?>
+        <button type="submit" name="gnn_sitemap_regenerate" value="1" class="button"><?php esc_html_e( 'Force Regenerate', 'gnn-sitemap' ); ?></button>
+        <span style="margin-left:8px;color:#555;"><?php esc_html_e( "If the sitemap or its stylesheet looks broken or stale (e.g. an XML parsing error), use this to flush rewrite rules and any detected page cache.", 'gnn-sitemap' ); ?></span>
+      </form>
 
       <h2 style="margin-top:16px;"><?php esc_html_e( 'Summary', 'gnn-sitemap' ); ?></h2>
       <table class="widefat striped" style="max-width:860px;">

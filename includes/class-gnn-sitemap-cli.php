@@ -7,14 +7,15 @@ if ( ! defined('ABSPATH') ) { exit; }
 class GNN_Sitemap_CLI {
 
     /**
-     * Flushes rewrite rules (same effect as "Permalinks -> Save").
+     * Forces a fresh sitemap: flushes rewrite rules and purges any detected
+     * page cache (same effect as the "Force Regenerate" button in the admin).
      *
      * ## EXAMPLES
      *     wp gnn-sitemap flush
      */
     public function flush( $args, $assoc_args ) {
-        flush_rewrite_rules( true );
-        WP_CLI::success( 'Rewrite rules flushed.' );
+        gnn_sitemap_force_regenerate();
+        WP_CLI::success( 'Sitemap regenerated: rewrite rules and any detected page cache were flushed.' );
     }
 
     /**
