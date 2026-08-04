@@ -127,10 +127,20 @@ class GNN_Sitemap_Updater {
     }
 
     /**
-     * The GitHub zip arrives in a folder named "{repo}-{tag}"; if WP installs
-     * it as-is, the plugin's slug changes and it gets treated as a "new"
-     * plugin, losing its active state. So we rename it back to the real slug
-     * folder after install.
+     * Our release .zip (built by release.yml) already ships with the correct
+     * "gnn-sitemap" top-level folder, so this is normally a no-op. It only
+     * kicks in as a fallback if GitHub's auto-generated zipball
+     * ("{repo}-{tag}") is ever used instead, which would otherwise install
+     * under the wrong folder name and make WordPress treat it as a brand
+     * new plugin.
+     *
+     * Note: this must NOT call activate_plugin()/include the plugin file.
+     * The current request already has this plugin's functions/constants
+     * loaded in memory; re-including the file here would redeclare them and
+     * fatal mid-upgrade, leaving the plugin directory in a broken state
+     * ("Plugin file does not exist"). Since the folder path is unchanged in
+     * the normal case, WordPress's own "active_plugins" option entry is
+     * still valid — nothing needs to be reactivated.
      */
     public function fix_folder_name( $response, $hook_extra, $result ) {
         if ( empty( $hook_extra['plugin'] ) || $hook_extra['plugin'] !== $this->plugin_slug ) {
@@ -142,13 +152,9 @@ class GNN_Sitemap_Updater {
         $target_dir = trailingslashit( WP_PLUGIN_DIR ) . $this->slug;
         $source_dir = $result['destination'];
 
-        if ( $source_dir !== $target_dir && $wp_filesystem->exists( $source_dir ) ) {
+        if ( $source_dir !== $target_dir && $wp_filesystem && $wp_filesystem->exists( $source_dir ) ) {
             $wp_filesystem->move( $source_dir, $target_dir, true );
             $result['destination'] = $target_dir;
-        }
-
-        if ( is_plugin_active( $this->plugin_slug ) ) {
-            activate_plugin( $this->plugin_slug );
         }
 
         return $result;
