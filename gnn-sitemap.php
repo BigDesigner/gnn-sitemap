@@ -2,7 +2,7 @@
 /*
 Plugin Name: GNN Sitemap
 Description: Uses WordPress core sitemap infrastructure. Adds a /sitemap.xml alias and lets you choose which post types, taxonomies, and users are included from the admin panel.
-Version: 1.0.2
+Version: 1.0.3
 Author: GNN
 Requires at least: 5.5
 Requires PHP: 7.4
@@ -17,7 +17,7 @@ const GNN_SITEMAP_OPT = 'gnn_sitemap_settings';
 
 // GNN plugin standard: file/version constants (used by action links and updater).
 define( 'GNN_SITEMAP_FILE', __FILE__ );
-define( 'GNN_SITEMAP_VERSION', trim( (string) @file_get_contents( __DIR__ . '/VERSION' ) ) ?: '1.0.2' );
+define( 'GNN_SITEMAP_VERSION', trim( (string) @file_get_contents( __DIR__ . '/VERSION' ) ) ?: '1.0.3' );
 
 add_action( 'init', function () {
     load_plugin_textdomain( 'gnn-sitemap', false, dirname( plugin_basename( GNN_SITEMAP_FILE ) ) . '/languages' );
@@ -51,6 +51,9 @@ function gnn_sitemap_force_regenerate() {
         if ( method_exists( 'WpeCommon', 'purge_varnish_cache' ) ) { WpeCommon::purge_varnish_cache(); }
         if ( method_exists( 'WpeCommon', 'purge_memcached' ) ) { WpeCommon::purge_memcached(); }
     }
+    // WPMU DEV Hummingbird.
+    if ( function_exists( 'wphb_clear_page_cache' ) ) { wphb_clear_page_cache(); }
+    do_action( 'wphb_clear_page_cache' );
 
     do_action( 'gnn_sitemap_force_regenerate' );
 }
