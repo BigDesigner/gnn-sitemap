@@ -2,7 +2,7 @@
 # This file is distributed under the same license as the GNN Sitemap plugin.
 msgid ""
 msgstr ""
-"Project-Id-Version: GNN Sitemap 1.0.4\n"
+"Project-Id-Version: GNN Sitemap 1.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/BigDesigner/gnn-sitemap/issues\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -161,4 +161,56 @@ msgstr ""
 
 #: gnn-sitemap.php
 msgid "If the sitemap or its stylesheet looks broken or stale (e.g. an XML parsing error), use this to flush rewrite rules and any detected page cache."
+msgstr ""
+
+#: gnn-sitemap.php
+msgid "HTTP %d response"
+msgstr ""
+
+#: gnn-sitemap.php
+msgid "XML parse error at line %1$d: %2$s"
+msgstr ""
+
+#: gnn-sitemap.php
+msgid "XML could not be parsed."
+msgstr ""
+
+#: gnn-sitemap.php
+msgid "A sitemap health check found invalid XML output for: %s. See the GNN Sitemap settings page for details."
+msgstr ""
+
+#: gnn-sitemap.php
+msgid "Sitemap Health"
+msgstr ""
+
+#: gnn-sitemap.php
+msgid "URL"
+msgstr ""
+
+#: gnn-sitemap.php
+msgid "Status"
+msgstr ""
+
+#: gnn-sitemap.php
+msgid "Valid XML"
+msgstr ""
+
+#: gnn-sitemap.php
+msgid "These active plugins hook into the sitemap stylesheet and are the most likely cause: %s."
+msgstr ""
+
+#: gnn-sitemap.php
+msgid "No plugin hooks the sitemap content filters directly, but these active optimization plugins are good first suspects — check their HTML/asset minification settings and exclude sitemap/XSL URLs: %s."
+msgstr ""
+
+#: gnn-sitemap.php
+msgid "No obvious plugin culprit was found automatically. Try disabling caching/optimization plugins one at a time and re-running this check."
+msgstr ""
+
+#: gnn-sitemap.php
+msgid "Run Health Check Now"
+msgstr ""
+
+#: gnn-sitemap.php
+msgid "Fetches your own sitemap URLs and verifies the response is well-formed XML. Cached for an hour."
 msgstr ""

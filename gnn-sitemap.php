@@ -2,7 +2,7 @@
 /*
 Plugin Name: GNN Sitemap
 Description: Uses WordPress core sitemap infrastructure. Adds a /sitemap.xml alias and lets you choose which post types, taxonomies, and users are included from the admin panel.
-Version: 1.0.4
+Version: 1.1.0
 Author: GNN
 Requires at least: 5.5
 Requires PHP: 7.4
@@ -17,7 +17,7 @@ const GNN_SITEMAP_OPT = 'gnn_sitemap_settings';
 
 // GNN plugin standard: file/version constants (used by action links and updater).
 define( 'GNN_SITEMAP_FILE', __FILE__ );
-define( 'GNN_SITEMAP_VERSION', trim( (string) @file_get_contents( __DIR__ . '/VERSION' ) ) ?: '1.0.4' );
+define( 'GNN_SITEMAP_VERSION', trim( (string) @file_get_contents( __DIR__ . '/VERSION' ) ) ?: '1.1.0' );
 
 add_action( 'init', function () {
     load_plugin_textdomain( 'gnn-sitemap', false, dirname( plugin_basename( GNN_SITEMAP_FILE ) ) . '/languages' );
@@ -204,6 +204,175 @@ add_action( 'admin_notices', function () {
     }
 
     echo '<div class="notice notice-warning is-dismissible"><p>' . $msg . '</p></div>';
+} );
+
+/** ---------- Sitemap health check (detects broken/corrupted live output) ---------- */
+
+/**
+ * Fetches this site's own sitemap endpoints and checks that the response is
+ * well-formed XML. Doesn't assume WHAT corrupted it — a plugin hooking the
+ * core content filters below, a minifier applied via raw output buffering, a
+ * CDN transform, etc. — it just verifies what a browser/search engine
+ * actually receives. Cached in a transient so it isn't refetched on every
+ * admin page load; "Run Health Check Now" on the settings page forces a
+ * fresh run.
+ */
+function gnn_sitemap_run_health_check() {
+    $targets = array(
+        'wp-sitemap.xml'       => home_url( '/wp-sitemap.xml' ),
+        'wp-sitemap-index.xsl' => home_url( '/wp-sitemap-index.xsl' ),
+    );
+    if ( gnn_sitemap_alias_should_run() ) {
+        $targets['sitemap.xml'] = home_url( '/sitemap.xml' );
+    }
+
+    $results = array();
+    foreach ( $targets as $label => $url ) {
+        $response = wp_remote_get( $url, array( 'timeout' => 10, 'redirection' => 3 ) );
+
+        if ( is_wp_error( $response ) ) {
+            $results[ $label ] = array( 'ok' => false, 'error' => $response->get_error_message() );
+            continue;
+        }
+
+        $code = wp_remote_retrieve_response_code( $response );
+        if ( 200 !== $code ) {
+            /* translators: %d: HTTP status code */
+            $results[ $label ] = array( 'ok' => false, 'error' => sprintf( __( 'HTTP %d response', 'gnn-sitemap' ), $code ) );
+            continue;
+        }
+
+        $body = wp_remote_retrieve_body( $response );
+        libxml_use_internal_errors( true );
+        $doc     = new DOMDocument();
+        $loaded  = $doc->loadXML( $body );
+        $xml_err = libxml_get_errors();
+        libxml_clear_errors();
+
+        if ( ! $loaded || ! empty( $xml_err ) ) {
+            $first = ! empty( $xml_err ) ? $xml_err[0] : null;
+            $message = $first
+                /* translators: 1: line number, 2: parser error message */
+                ? sprintf( __( 'XML parse error at line %1$d: %2$s', 'gnn-sitemap' ), $first->line, trim( $first->message ) )
+                : __( 'XML could not be parsed.', 'gnn-sitemap' );
+            $results[ $label ] = array( 'ok' => false, 'error' => $message );
+        } else {
+            $results[ $label ] = array( 'ok' => true, 'error' => '' );
+        }
+    }
+
+    set_transient( 'gnn_sitemap_health', $results, HOUR_IN_SECONDS );
+    return $results;
+}
+
+function gnn_sitemap_get_health_check( $force = false ) {
+    if ( ! $force ) {
+        $cached = get_transient( 'gnn_sitemap_health' );
+        if ( false !== $cached ) {
+            return $cached;
+        }
+    }
+    return gnn_sitemap_run_health_check();
+}
+
+/**
+ * Resolves the source file a filter callback lives in, so we can trace it
+ * back to a plugin folder. Returns '' if it can't be resolved (e.g. an
+ * anonymous class or something PHP's Reflection can't introspect).
+ */
+function gnn_sitemap_resolve_callback_file( $function ) {
+    try {
+        if ( is_array( $function ) && isset( $function[0], $function[1] ) ) {
+            $ref = new ReflectionMethod( $function[0], $function[1] );
+            return (string) $ref->getFileName();
+        }
+        if ( $function instanceof Closure || ( is_string( $function ) && function_exists( $function ) ) ) {
+            $ref = new ReflectionFunction( $function );
+            return (string) $ref->getFileName();
+        }
+    } catch ( ReflectionException $e ) {
+        return '';
+    }
+    return '';
+}
+
+/**
+ * Core exposes exactly two filters that let a plugin inject content into
+ * the sitemap XSL: 'wp_sitemaps_stylesheet_content' and
+ * 'wp_sitemaps_stylesheet_index_content'. Any *other* active plugin hooked
+ * into either one is a prime suspect for sitemap corruption — this is how
+ * we found the plugin responsible without having to guess its name.
+ */
+function gnn_sitemap_find_stylesheet_hookers() {
+    global $wp_filter;
+
+    $our_dir = plugin_dir_path( GNN_SITEMAP_FILE );
+    $suspects = array();
+
+    foreach ( array( 'wp_sitemaps_stylesheet_content', 'wp_sitemaps_stylesheet_index_content' ) as $hook ) {
+        if ( empty( $wp_filter[ $hook ] ) || ! isset( $wp_filter[ $hook ]->callbacks ) ) {
+            continue;
+        }
+
+        foreach ( $wp_filter[ $hook ]->callbacks as $callbacks ) {
+            foreach ( $callbacks as $cb ) {
+                $file = gnn_sitemap_resolve_callback_file( $cb['function'] );
+                if ( ! $file || strpos( $file, WP_PLUGIN_DIR ) !== 0 ) {
+                    continue; // Not a plugin (core, theme, mu-plugin) or unresolvable.
+                }
+                if ( strpos( $file, $our_dir ) === 0 ) {
+                    continue; // Skip ourselves.
+                }
+                $rel    = substr( $file, strlen( trailingslashit( WP_PLUGIN_DIR ) ) );
+                $folder = strtok( $rel, '/' );
+                $suspects[] = $folder;
+            }
+        }
+    }
+
+    return array_values( array_unique( $suspects ) );
+}
+
+/**
+ * Well-known performance/optimization plugins that minify or otherwise
+ * post-process page output. If the health check finds broken XML and one of
+ * these is active, its HTML/asset optimization feature is a good first
+ * place to check (exclude sitemap/XSL paths, or disable HTML minification).
+ */
+function gnn_sitemap_detect_optimizer_plugins() {
+    $found = array();
+
+    if ( defined('WPHB_VERSION') || class_exists('Hummingbird\\WP_Hummingbird') ) { $found[] = 'Hummingbird'; }
+    if ( defined('AUTOPTIMIZE_PLUGIN_DIR') ) { $found[] = 'Autoptimize'; }
+    if ( defined('WP_ROCKET_VERSION') ) { $found[] = 'WP Rocket'; }
+    if ( defined('W3TC_VERSION') ) { $found[] = 'W3 Total Cache'; }
+    if ( defined('LSCWP_V') ) { $found[] = 'LiteSpeed Cache'; }
+    if ( defined('BREEZE_VERSION') ) { $found[] = 'Breeze'; }
+    if ( class_exists('WpFastestCache') ) { $found[] = 'WP Fastest Cache'; }
+    if ( class_exists('SiteGround_Optimizer\\Loader\\Loader') ) { $found[] = 'SG Optimizer'; }
+    if ( class_exists('NitroPack') ) { $found[] = 'NitroPack'; }
+    if ( function_exists('rocket_clean_domain') && ! defined('WP_ROCKET_VERSION') ) { $found[] = 'WP Rocket'; }
+
+    return array_values( array_unique( $found ) );
+}
+
+add_action( 'admin_notices', function () {
+    if ( ! current_user_can('manage_options') ) { return; }
+
+    // Read-only: never trigger a live check from a general admin_notices hook.
+    $cached = get_transient( 'gnn_sitemap_health' );
+    if ( false === $cached ) { return; }
+
+    $broken = array_filter( $cached, function( $r ) { return empty( $r['ok'] ); } );
+    if ( empty( $broken ) ) { return; }
+
+    $labels = implode( ', ', array_keys( $broken ) );
+    $msg = '<strong>' . esc_html__( 'GNN Sitemap:', 'gnn-sitemap' ) . '</strong> ' . sprintf(
+        /* translators: %s: comma-separated list of broken sitemap URLs */
+        esc_html__( 'A sitemap health check found invalid XML output for: %s. See the GNN Sitemap settings page for details.', 'gnn-sitemap' ),
+        esc_html( $labels )
+    );
+    echo '<div class="notice notice-error is-dismissible"><p>' . $msg . '</p></div>';
 } );
 
 /** ---------- /sitemap.xml alias (rewrite + redirect) ---------- */
@@ -398,6 +567,9 @@ function gnn_sitemap_render_settings_page() {
         echo '<div class="updated notice"><p>' . esc_html__( 'Sitemap regenerated: rewrite rules and any detected page cache were flushed.', 'gnn-sitemap' ) . '</p></div>';
     }
 
+    $force_health = isset($_POST['gnn_sitemap_health_check']) && check_admin_referer('gnn_sitemap_health_check');
+    $health       = gnn_sitemap_get_health_check( $force_health );
+
     if ( isset($_POST['gnn_sitemap_submit']) && check_admin_referer('gnn_sitemap_save') ) {
         $new                  = array();
         $new['post_types']    = isset($_POST['post_types']) ? array_map('sanitize_key', (array) $_POST['post_types']) : array();
@@ -450,6 +622,64 @@ function gnn_sitemap_render_settings_page() {
         <?php wp_nonce_field('gnn_sitemap_regenerate'); ?>
         <button type="submit" name="gnn_sitemap_regenerate" value="1" class="button"><?php esc_html_e( 'Force Regenerate', 'gnn-sitemap' ); ?></button>
         <span style="margin-left:8px;color:#555;"><?php esc_html_e( "If the sitemap or its stylesheet looks broken or stale (e.g. an XML parsing error), use this to flush rewrite rules and any detected page cache.", 'gnn-sitemap' ); ?></span>
+      </form>
+
+      <h2 style="margin-top:16px;"><?php esc_html_e( 'Sitemap Health', 'gnn-sitemap' ); ?></h2>
+      <table class="widefat striped" style="max-width:860px;">
+        <thead>
+          <tr><th><?php esc_html_e( 'URL', 'gnn-sitemap' ); ?></th><th><?php esc_html_e( 'Status', 'gnn-sitemap' ); ?></th></tr>
+        </thead>
+        <tbody>
+          <?php foreach ( $health as $label => $result ) : ?>
+          <tr>
+            <td><code><?php echo esc_html( $label ); ?></code></td>
+            <td>
+              <?php if ( ! empty( $result['ok'] ) ) : ?>
+                <span style="color:#008a20;">✓ <?php esc_html_e( 'Valid XML', 'gnn-sitemap' ); ?></span>
+              <?php else : ?>
+                <span style="color:#d63638;">✗ <?php echo esc_html( $result['error'] ); ?></span>
+              <?php endif; ?>
+            </td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+
+      <?php
+      $broken = array_filter( $health, function( $r ) { return empty( $r['ok'] ); } );
+      if ( ! empty( $broken ) ) :
+          $hookers   = gnn_sitemap_find_stylesheet_hookers();
+          $optimizers = gnn_sitemap_detect_optimizer_plugins();
+      ?>
+        <div class="notice notice-error inline" style="margin:12px 0;max-width:860px;">
+          <p>
+            <?php if ( ! empty( $hookers ) ) : ?>
+              <?php
+              printf(
+                  /* translators: %s: comma-separated list of plugin folder names */
+                  esc_html__( 'These active plugins hook into the sitemap stylesheet and are the most likely cause: %s.', 'gnn-sitemap' ),
+                  '<strong>' . esc_html( implode( ', ', $hookers ) ) . '</strong>'
+              );
+              ?>
+            <?php elseif ( ! empty( $optimizers ) ) : ?>
+              <?php
+              printf(
+                  /* translators: %s: comma-separated list of optimization plugin names */
+                  esc_html__( 'No plugin hooks the sitemap content filters directly, but these active optimization plugins are good first suspects — check their HTML/asset minification settings and exclude sitemap/XSL URLs: %s.', 'gnn-sitemap' ),
+                  '<strong>' . esc_html( implode( ', ', $optimizers ) ) . '</strong>'
+              );
+              ?>
+            <?php else : ?>
+              <?php esc_html_e( 'No obvious plugin culprit was found automatically. Try disabling caching/optimization plugins one at a time and re-running this check.', 'gnn-sitemap' ); ?>
+            <?php endif; ?>
+          </p>
+        </div>
+      <?php endif; ?>
+
+      <form method="post" style="margin-top:12px;">
+        <?php wp_nonce_field('gnn_sitemap_health_check'); ?>
+        <button type="submit" name="gnn_sitemap_health_check" value="1" class="button"><?php esc_html_e( 'Run Health Check Now', 'gnn-sitemap' ); ?></button>
+        <span style="margin-left:8px;color:#555;"><?php esc_html_e( 'Fetches your own sitemap URLs and verifies the response is well-formed XML. Cached for an hour.', 'gnn-sitemap' ); ?></span>
       </form>
 
       <h2 style="margin-top:16px;"><?php esc_html_e( 'Summary', 'gnn-sitemap' ); ?></h2>
