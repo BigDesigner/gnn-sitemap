@@ -21,10 +21,8 @@ jobs:
 
       - name: Build clean plugin folder
         run: |
-          mkdir -p build/gnn-sitemap
-          rsync -a --exclude='.git' --exclude='.github' --exclude='build' \
-            --exclude='.gitignore' --exclude='.antigravity' \
-            ./ build/gnn-sitemap/
+          mkdir -p build
+          cp -r gnn-sitemap build/gnn-sitemap
 
       - name: Zip plugin
         run: |
