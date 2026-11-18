@@ -6,7 +6,7 @@ Version: 1.1.1
 Author: GNN
 Requires at least: 5.5
 Requires PHP: 7.4
-Tested up to: 6.6
+Tested up to: 7.1
 Text Domain: gnn-sitemap
 Domain Path: /languages
 */
@@ -21,7 +21,7 @@ define( 'GNN_SITEMAP_VERSION', trim( (string) @file_get_contents( __DIR__ . '/VE
 
 add_action( 'init', function () {
     load_plugin_textdomain( 'gnn-sitemap', false, dirname( plugin_basename( GNN_SITEMAP_FILE ) ) . '/languages' );
-}, 0 );
+}, 1 );
 
 require_once __DIR__ . '/includes/class-gnn-sitemap-updater.php';
 add_action( 'init', function () {
@@ -245,7 +245,7 @@ function gnn_sitemap_run_health_check() {
         $body = wp_remote_retrieve_body( $response );
         libxml_use_internal_errors( true );
         $doc     = new DOMDocument();
-        $loaded  = $doc->loadXML( $body );
+        $loaded  = $doc->loadXML( $body, LIBXML_NONET );
         $xml_err = libxml_get_errors();
         libxml_clear_errors();
 
@@ -306,8 +306,9 @@ function gnn_sitemap_resolve_callback_file( $function ) {
 function gnn_sitemap_find_stylesheet_hookers() {
     global $wp_filter;
 
-    $our_dir = plugin_dir_path( GNN_SITEMAP_FILE );
-    $suspects = array();
+    $our_dir    = wp_normalize_path( plugin_dir_path( GNN_SITEMAP_FILE ) );
+    $plugin_dir = wp_normalize_path( trailingslashit( WP_PLUGIN_DIR ) );
+    $suspects   = array();
 
     foreach ( array( 'wp_sitemaps_stylesheet_content', 'wp_sitemaps_stylesheet_index_content' ) as $hook ) {
         if ( empty( $wp_filter[ $hook ] ) || ! isset( $wp_filter[ $hook ]->callbacks ) ) {
@@ -316,15 +317,15 @@ function gnn_sitemap_find_stylesheet_hookers() {
 
         foreach ( $wp_filter[ $hook ]->callbacks as $callbacks ) {
             foreach ( $callbacks as $cb ) {
-                $file = gnn_sitemap_resolve_callback_file( $cb['function'] );
-                if ( ! $file || strpos( $file, WP_PLUGIN_DIR ) !== 0 ) {
+                $file = wp_normalize_path( gnn_sitemap_resolve_callback_file( $cb['function'] ) );
+                if ( ! $file || strpos( $file, $plugin_dir ) !== 0 ) {
                     continue; // Not a plugin (core, theme, mu-plugin) or unresolvable.
                 }
                 if ( strpos( $file, $our_dir ) === 0 ) {
                     continue; // Skip ourselves.
                 }
-                $rel    = substr( $file, strlen( trailingslashit( WP_PLUGIN_DIR ) ) );
-                $folder = strtok( $rel, '/' );
+                $rel        = substr( $file, strlen( $plugin_dir ) );
+                $folder     = strtok( $rel, '/' );
                 $suspects[] = $folder;
             }
         }
@@ -395,7 +396,7 @@ add_action( 'template_redirect', function () {
     if ( get_query_var( 'gnn_sitemap_redirect' ) ) {
         if ( ! gnn_sitemap_alias_should_run() ) { return; }
         // Only accept GET/HEAD.
-        $method = isset($_SERVER['REQUEST_METHOD']) ? strtoupper($_SERVER['REQUEST_METHOD']) : 'GET';
+        $method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : 'GET';
         if ( ! in_array( $method, array('GET','HEAD'), true ) ) {
             status_header(405);
             header('Allow: GET, HEAD');
@@ -519,7 +520,7 @@ add_filter( 'plugin_action_links', function ( $links, $file ) {
         return $links;
     }
 
-    $donate_link = '<a href="https://buymeacoffee.com/bigdesigner" target="_blank" style="font-weight:bold; color:#d63638;">'
+    $donate_link = '<a href="https://buymeacoffee.com/bigdesigner" target="_blank" rel="noopener noreferrer" style="font-weight:bold; color:#d63638;">'
         . esc_html__( 'Donate', 'gnn-sitemap' ) . '</a>';
 
     $settings_link = '<a href="' . esc_url( admin_url( 'admin.php?page=sitemap-settings' ) ) . '">'
@@ -549,8 +550,12 @@ function gnn_sitemap_toggle_styles() {
         .gnn-sitemap-wrap .gnn-toggle-slider::before { content: ""; position: absolute; width: 16px; height: 16px; left: 2px; top: 2px; background: #fff; border-radius: 50%; transition: transform .15s ease-in-out; }
         .gnn-sitemap-wrap .gnn-toggle input:checked + .gnn-toggle-slider { background: #2271b1; }
         .gnn-sitemap-wrap .gnn-toggle input:checked + .gnn-toggle-slider::before { transform: translateX(16px); }
-        .gnn-sitemap-wrap .gnn-toggle input:focus + .gnn-toggle-slider { box-shadow: 0 0 0 1px #fff, 0 0 0 3px #2271b1; }
+        .gnn-sitemap-wrap .gnn-toggle input:focus-visible + .gnn-toggle-slider { box-shadow: 0 0 0 1px #fff, 0 0 0 3px #2271b1; }
         .gnn-sitemap-wrap fieldset { margin-top: 8px; }
+        .gnn-sitemap-wrap .gnn-inline-desc { margin-left: 8px; color: #555; }
+        @media (max-width: 782px) {
+            .gnn-sitemap-wrap .gnn-inline-desc { display: block; margin-left: 0; margin-top: 6px; }
+        }
     </style>
     <?php
 }
@@ -603,7 +608,7 @@ function gnn_sitemap_render_settings_page() {
         <tbody>
           <tr>
             <th scope="row"><?php esc_html_e( 'Core Sitemap', 'gnn-sitemap' ); ?></th>
-            <td><a href="<?php echo $sitemap_url; ?>" target="_blank" rel="noopener"><?php echo $sitemap_url; ?></a></td>
+            <td><a href="<?php echo $sitemap_url; ?>" target="_blank" rel="noopener noreferrer"><?php echo $sitemap_url; ?></a></td>
           </tr>
           <tr>
             <th scope="row"><?php esc_html_e( 'Alias', 'gnn-sitemap' ); ?></th>
@@ -611,7 +616,7 @@ function gnn_sitemap_render_settings_page() {
               <?php if ( $alias_disabled ) : ?>
                 <em><?php esc_html_e( 'Disabled', 'gnn-sitemap' ); ?></em> (<?php esc_html_e( 'core sitemap was disabled by another plugin', 'gnn-sitemap' ); ?>)
               <?php else : ?>
-                <a href="<?php echo $alias_url; ?>" target="_blank" rel="noopener"><?php echo $alias_url; ?></a> (301 → wp-sitemap.xml)
+                <a href="<?php echo $alias_url; ?>" target="_blank" rel="noopener noreferrer"><?php echo $alias_url; ?></a> (301 → wp-sitemap.xml)
               <?php endif; ?>
             </td>
           </tr>
@@ -621,7 +626,7 @@ function gnn_sitemap_render_settings_page() {
       <form method="post" style="margin-top:12px;">
         <?php wp_nonce_field('gnn_sitemap_regenerate'); ?>
         <button type="submit" name="gnn_sitemap_regenerate" value="1" class="button"><?php esc_html_e( 'Force Regenerate', 'gnn-sitemap' ); ?></button>
-        <span style="margin-left:8px;color:#555;"><?php esc_html_e( "If the sitemap or its stylesheet looks broken or stale (e.g. an XML parsing error), use this to flush rewrite rules and any detected page cache.", 'gnn-sitemap' ); ?></span>
+        <span class="gnn-inline-desc"><?php esc_html_e( "If the sitemap or its stylesheet looks broken or stale (e.g. an XML parsing error), use this to flush rewrite rules and any detected page cache.", 'gnn-sitemap' ); ?></span>
       </form>
 
       <h2 style="margin-top:16px;"><?php esc_html_e( 'Sitemap Health', 'gnn-sitemap' ); ?></h2>
@@ -635,9 +640,9 @@ function gnn_sitemap_render_settings_page() {
             <td><code><?php echo esc_html( $label ); ?></code></td>
             <td>
               <?php if ( ! empty( $result['ok'] ) ) : ?>
-                <span style="color:#008a20;">✓ <?php esc_html_e( 'Valid XML', 'gnn-sitemap' ); ?></span>
+                <span style="color:#008a20;"><span aria-hidden="true">✓</span> <?php esc_html_e( 'Valid XML', 'gnn-sitemap' ); ?></span>
               <?php else : ?>
-                <span style="color:#d63638;">✗ <?php echo esc_html( $result['error'] ); ?></span>
+                <span style="color:#d63638;"><span aria-hidden="true">✗</span> <?php echo esc_html( $result['error'] ); ?></span>
               <?php endif; ?>
             </td>
           </tr>
@@ -679,7 +684,7 @@ function gnn_sitemap_render_settings_page() {
       <form method="post" style="margin-top:12px;">
         <?php wp_nonce_field('gnn_sitemap_health_check'); ?>
         <button type="submit" name="gnn_sitemap_health_check" value="1" class="button"><?php esc_html_e( 'Run Health Check Now', 'gnn-sitemap' ); ?></button>
-        <span style="margin-left:8px;color:#555;"><?php esc_html_e( 'Fetches your own sitemap URLs and verifies the response is well-formed XML. Cached for an hour.', 'gnn-sitemap' ); ?></span>
+        <span class="gnn-inline-desc"><?php esc_html_e( 'Fetches your own sitemap URLs and verifies the response is well-formed XML. Cached for an hour.', 'gnn-sitemap' ); ?></span>
       </form>
 
       <h2 style="margin-top:16px;"><?php esc_html_e( 'Summary', 'gnn-sitemap' ); ?></h2>
@@ -731,11 +736,12 @@ function gnn_sitemap_render_settings_page() {
         <h2><?php esc_html_e( 'Post Type Selection', 'gnn-sitemap' ); ?></h2>
         <p><?php esc_html_e( 'Choose which post types to include.', 'gnn-sitemap' ); ?></p>
         <fieldset>
+          <legend class="screen-reader-text"><?php esc_html_e( 'Post Type Selection', 'gnn-sitemap' ); ?></legend>
           <?php foreach ( $available_pts as $slug => $obj ): ?>
             <label class="gnn-toggle">
               <input type="checkbox" name="post_types[]" value="<?php echo esc_attr($slug); ?>"
                 <?php checked( in_array( $slug, (array) $settings['post_types'], true ) ); ?> />
-              <span class="gnn-toggle-slider"></span>
+              <span class="gnn-toggle-slider" aria-hidden="true"></span>
               <span><?php echo esc_html( $obj->labels->name . " ($slug)" ); ?></span>
             </label>
           <?php endforeach; ?>
@@ -744,11 +750,12 @@ function gnn_sitemap_render_settings_page() {
         <h2 style="margin-top:16px;"><?php esc_html_e( 'Taxonomy Selection', 'gnn-sitemap' ); ?></h2>
         <p><?php esc_html_e( 'Choose which taxonomies to include (category, tag, etc.).', 'gnn-sitemap' ); ?></p>
         <fieldset>
+          <legend class="screen-reader-text"><?php esc_html_e( 'Taxonomy Selection', 'gnn-sitemap' ); ?></legend>
           <?php foreach ( $available_tx as $slug => $obj ): ?>
             <label class="gnn-toggle">
               <input type="checkbox" name="taxonomies[]" value="<?php echo esc_attr($slug); ?>"
                 <?php checked( in_array( $slug, (array) $settings['taxonomies'], true ) ); ?> />
-              <span class="gnn-toggle-slider"></span>
+              <span class="gnn-toggle-slider" aria-hidden="true"></span>
               <span><?php echo esc_html( $obj->labels->name . " ($slug)" ); ?></span>
             </label>
           <?php endforeach; ?>
@@ -757,7 +764,7 @@ function gnn_sitemap_render_settings_page() {
         <h2 style="margin-top:16px;"><?php esc_html_e( 'Users', 'gnn-sitemap' ); ?></h2>
         <label class="gnn-toggle">
           <input type="checkbox" name="include_users" value="1" <?php checked( ! empty( $settings['include_users'] ) ); ?> />
-          <span class="gnn-toggle-slider"></span>
+          <span class="gnn-toggle-slider" aria-hidden="true"></span>
           <span><?php esc_html_e( 'Include author archives (users)', 'gnn-sitemap' ); ?></span>
         </label>
 
@@ -771,7 +778,8 @@ function gnn_sitemap_render_settings_page() {
           );
           ?>
         </p>
-        <textarea name="excluded_ids" rows="3" class="large-text code" placeholder="12, 45, 78"><?php echo esc_textarea( implode( ', ', $settings['excluded_ids'] ) ); ?></textarea>
+        <label for="gnn-sitemap-excluded-ids" class="screen-reader-text"><?php esc_html_e( 'Exclude by ID', 'gnn-sitemap' ); ?></label>
+        <textarea id="gnn-sitemap-excluded-ids" name="excluded_ids" rows="3" class="large-text code" placeholder="12, 45, 78"><?php echo esc_textarea( implode( ', ', $settings['excluded_ids'] ) ); ?></textarea>
 
         <p style="margin-top:16px;">
           <button type="submit" name="gnn_sitemap_submit" class="button button-primary"><?php esc_html_e( 'Save', 'gnn-sitemap' ); ?></button>
@@ -844,11 +852,12 @@ function gnn_sitemap_render_network_settings_page() {
 
         <h2><?php esc_html_e( 'Post Type Selection', 'gnn-sitemap' ); ?></h2>
         <fieldset>
+          <legend class="screen-reader-text"><?php esc_html_e( 'Post Type Selection', 'gnn-sitemap' ); ?></legend>
           <?php foreach ( $available_pts as $slug => $obj ): ?>
             <label class="gnn-toggle">
               <input type="checkbox" name="post_types[]" value="<?php echo esc_attr($slug); ?>"
                 <?php checked( in_array( $slug, (array) $settings['post_types'], true ) ); ?> />
-              <span class="gnn-toggle-slider"></span>
+              <span class="gnn-toggle-slider" aria-hidden="true"></span>
               <span><?php echo esc_html( $obj->labels->name . " ($slug)" ); ?></span>
             </label>
           <?php endforeach; ?>
@@ -856,11 +865,12 @@ function gnn_sitemap_render_network_settings_page() {
 
         <h2 style="margin-top:16px;"><?php esc_html_e( 'Taxonomy Selection', 'gnn-sitemap' ); ?></h2>
         <fieldset>
+          <legend class="screen-reader-text"><?php esc_html_e( 'Taxonomy Selection', 'gnn-sitemap' ); ?></legend>
           <?php foreach ( $available_tx as $slug => $obj ): ?>
             <label class="gnn-toggle">
               <input type="checkbox" name="taxonomies[]" value="<?php echo esc_attr($slug); ?>"
                 <?php checked( in_array( $slug, (array) $settings['taxonomies'], true ) ); ?> />
-              <span class="gnn-toggle-slider"></span>
+              <span class="gnn-toggle-slider" aria-hidden="true"></span>
               <span><?php echo esc_html( $obj->labels->name . " ($slug)" ); ?></span>
             </label>
           <?php endforeach; ?>
@@ -869,7 +879,7 @@ function gnn_sitemap_render_network_settings_page() {
         <h2 style="margin-top:16px;"><?php esc_html_e( 'Users', 'gnn-sitemap' ); ?></h2>
         <label class="gnn-toggle">
           <input type="checkbox" name="include_users" value="1" <?php checked( ! empty( $settings['include_users'] ) ); ?> />
-          <span class="gnn-toggle-slider"></span>
+          <span class="gnn-toggle-slider" aria-hidden="true"></span>
           <span><?php esc_html_e( 'Include author archives (users)', 'gnn-sitemap' ); ?></span>
         </label>
 

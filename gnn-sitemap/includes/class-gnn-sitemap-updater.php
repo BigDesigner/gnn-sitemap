@@ -14,6 +14,9 @@ class GNN_Sitemap_Updater {
     private $github_owner;
     private $github_repo;
     private $cache_key;
+    private $requires     = '5.5';
+    private $tested       = '7.1';
+    private $requires_php = '7.4';
 
     public function __construct( $plugin_file, $version, $github_owner, $github_repo ) {
         $this->plugin_file  = $plugin_file;
@@ -51,34 +54,51 @@ class GNN_Sitemap_Updater {
         }
 
         $body = json_decode( wp_remote_retrieve_body( $response ), true );
-        if ( empty( $body['tag_name'] ) ) {
+        if ( ! is_array( $body ) || empty( $body['tag_name'] ) ) {
             set_transient( $this->cache_key, array(), HOUR_IN_SECONDS );
             return array();
         }
 
+        $html_url = isset( $body['html_url'] ) ? esc_url_raw( $body['html_url'], array( 'https' ) ) : '';
+        $download = $this->get_package_url( isset( $body['assets'] ) ? $body['assets'] : array() );
+
         $release = array(
-            'version'   => ltrim( $body['tag_name'], 'v' ),
-            'download'  => '',
-            'changelog' => isset( $body['body'] ) ? $body['body'] : '',
-            'html_url'  => isset( $body['html_url'] ) ? $body['html_url'] : '',
-            'published' => isset( $body['published_at'] ) ? $body['published_at'] : '',
+            'version'   => ltrim( (string) $body['tag_name'], 'v' ),
+            'download'  => $download,
+            'changelog' => isset( $body['body'] ) ? (string) $body['body'] : '',
+            'html_url'  => $html_url,
+            'published' => isset( $body['published_at'] ) ? (string) $body['published_at'] : '',
         );
+
+        // Cache valid releases with a package URL for 12h; otherwise use short negative cache.
+        $ttl = $download ? ( 12 * HOUR_IN_SECONDS ) : HOUR_IN_SECONDS;
+        set_transient( $this->cache_key, $release, $ttl );
+        return $release;
+    }
+
+    /**
+     * Extracts and sanitizes the attached .zip release asset URL.
+     */
+    private function get_package_url( $assets ) {
+        if ( ! is_array( $assets ) ) {
+            return '';
+        }
 
         // Only use the .zip asset attached by release.yml (already named "gnn-sitemap").
         // GitHub's auto-generated zipball ("{repo}-{tag}" folder name) is intentionally
         // never used as a fallback: without a folder rename step, installing it would
         // put the plugin under the wrong slug.
-        if ( ! empty( $body['assets'] ) && is_array( $body['assets'] ) ) {
-            foreach ( $body['assets'] as $asset ) {
-                if ( isset( $asset['browser_download_url'] ) && substr( $asset['browser_download_url'], -4 ) === '.zip' ) {
-                    $release['download'] = $asset['browser_download_url'];
-                    break;
-                }
+        foreach ( $assets as $asset ) {
+            if ( empty( $asset['browser_download_url'] ) || ! is_string( $asset['browser_download_url'] ) ) {
+                continue;
+            }
+            $url = esc_url_raw( $asset['browser_download_url'], array( 'https' ) );
+            if ( $url && substr( $url, -4 ) === '.zip' ) {
+                return $url;
             }
         }
 
-        set_transient( $this->cache_key, $release, 12 * HOUR_IN_SECONDS );
-        return $release;
+        return '';
     }
 
     public function check_for_update( $transient ) {
@@ -93,11 +113,14 @@ class GNN_Sitemap_Updater {
 
         if ( version_compare( $release['version'], $this->version, '>' ) ) {
             $item = (object) array(
-                'slug'        => $this->slug,
-                'plugin'      => $this->plugin_slug,
-                'new_version' => $release['version'],
-                'url'         => $release['html_url'],
-                'package'     => $release['download'],
+                'slug'         => $this->slug,
+                'plugin'       => $this->plugin_slug,
+                'new_version'  => $release['version'],
+                'url'          => $release['html_url'],
+                'package'      => $release['download'],
+                'requires'     => $this->requires,
+                'tested'       => $this->tested,
+                'requires_php' => $this->requires_php,
             );
             $transient->response[ $this->plugin_slug ] = $item;
         }
@@ -121,6 +144,9 @@ class GNN_Sitemap_Updater {
             'version'       => $release['version'],
             'author'        => 'GNN',
             'homepage'      => $release['html_url'],
+            'requires'      => $this->requires,
+            'tested'        => $this->tested,
+            'requires_php'  => $this->requires_php,
             'sections'      => array(
                 'changelog' => wpautop( wp_kses_post( $release['changelog'] ) ),
             ),
