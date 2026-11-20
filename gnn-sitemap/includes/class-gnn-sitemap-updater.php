@@ -49,13 +49,11 @@ class GNN_Sitemap_Updater {
 
         $response = wp_remote_get( $url, $args );
         if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
-            set_transient( $this->cache_key, array(), HOUR_IN_SECONDS ); // short-lived negative cache
             return array();
         }
 
         $body = json_decode( wp_remote_retrieve_body( $response ), true );
         if ( ! is_array( $body ) || empty( $body['tag_name'] ) ) {
-            set_transient( $this->cache_key, array(), HOUR_IN_SECONDS );
             return array();
         }
 
@@ -70,9 +68,10 @@ class GNN_Sitemap_Updater {
             'published' => isset( $body['published_at'] ) ? (string) $body['published_at'] : '',
         );
 
-        // Cache valid releases with a package URL for 12h; otherwise use short negative cache.
-        $ttl = $download ? ( 12 * HOUR_IN_SECONDS ) : HOUR_IN_SECONDS;
-        set_transient( $this->cache_key, $release, $ttl );
+        // Only cache complete, valid release responses with a verified package URL.
+        if ( $download ) {
+            set_transient( $this->cache_key, $release, 12 * HOUR_IN_SECONDS );
+        }
         return $release;
     }
 
@@ -84,6 +83,12 @@ class GNN_Sitemap_Updater {
             return '';
         }
 
+        $allowed_hosts = array(
+            'github.com',
+            'objects.githubusercontent.com',
+            'release-assets.githubusercontent.com',
+        );
+
         // Only use the .zip asset attached by release.yml (already named "gnn-sitemap").
         // GitHub's auto-generated zipball ("{repo}-{tag}" folder name) is intentionally
         // never used as a fallback: without a folder rename step, installing it would
@@ -92,8 +97,9 @@ class GNN_Sitemap_Updater {
             if ( empty( $asset['browser_download_url'] ) || ! is_string( $asset['browser_download_url'] ) ) {
                 continue;
             }
-            $url = esc_url_raw( $asset['browser_download_url'], array( 'https' ) );
-            if ( $url && substr( $url, -4 ) === '.zip' ) {
+            $url  = esc_url_raw( $asset['browser_download_url'], array( 'https' ) );
+            $host = $url ? strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) ) : '';
+            if ( $url && in_array( $host, $allowed_hosts, true ) && substr( $url, -4 ) === '.zip' ) {
                 return $url;
             }
         }
@@ -147,6 +153,7 @@ class GNN_Sitemap_Updater {
             'requires'      => $this->requires,
             'tested'        => $this->tested,
             'requires_php'  => $this->requires_php,
+            'last_updated'  => $release['published'],
             'sections'      => array(
                 'changelog' => wpautop( wp_kses_post( $release['changelog'] ) ),
             ),

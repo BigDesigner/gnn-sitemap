@@ -203,7 +203,7 @@ add_action( 'admin_notices', function () {
         );
     }
 
-    echo '<div class="notice notice-warning is-dismissible"><p>' . $msg . '</p></div>';
+    echo '<div class="notice notice-warning is-dismissible"><p>' . wp_kses_post( $msg ) . '</p></div>';
 } );
 
 /** ---------- Sitemap health check (detects broken/corrupted live output) ---------- */
@@ -373,7 +373,7 @@ add_action( 'admin_notices', function () {
         esc_html__( 'A sitemap health check found invalid XML output for: %s. See the GNN Sitemap settings page for details.', 'gnn-sitemap' ),
         esc_html( $labels )
     );
-    echo '<div class="notice notice-error is-dismissible"><p>' . $msg . '</p></div>';
+    echo '<div class="notice notice-error is-dismissible"><p>' . wp_kses_post( $msg ) . '</p></div>';
 } );
 
 /** ---------- /sitemap.xml alias (rewrite + redirect) ---------- */
@@ -595,8 +595,8 @@ function gnn_sitemap_render_settings_page() {
         echo '<div class="updated notice"><p>' . esc_html__( 'Settings saved.', 'gnn-sitemap' ) . '</p></div>';
     }
 
-    $sitemap_url    = esc_url( home_url('/wp-sitemap.xml') );
-    $alias_url      = esc_url( home_url('/sitemap.xml') );
+    $sitemap_url    = home_url( '/wp-sitemap.xml' );
+    $alias_url      = home_url( '/sitemap.xml' );
     $alias_disabled = ! gnn_sitemap_alias_should_run();
     gnn_sitemap_toggle_styles();
     ?>
@@ -608,7 +608,7 @@ function gnn_sitemap_render_settings_page() {
         <tbody>
           <tr>
             <th scope="row"><?php esc_html_e( 'Core Sitemap', 'gnn-sitemap' ); ?></th>
-            <td><a href="<?php echo $sitemap_url; ?>" target="_blank" rel="noopener noreferrer"><?php echo $sitemap_url; ?></a></td>
+            <td><a href="<?php echo esc_url( $sitemap_url ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html( $sitemap_url ); ?></a></td>
           </tr>
           <tr>
             <th scope="row"><?php esc_html_e( 'Alias', 'gnn-sitemap' ); ?></th>
@@ -616,7 +616,7 @@ function gnn_sitemap_render_settings_page() {
               <?php if ( $alias_disabled ) : ?>
                 <em><?php esc_html_e( 'Disabled', 'gnn-sitemap' ); ?></em> (<?php esc_html_e( 'core sitemap was disabled by another plugin', 'gnn-sitemap' ); ?>)
               <?php else : ?>
-                <a href="<?php echo $alias_url; ?>" target="_blank" rel="noopener noreferrer"><?php echo $alias_url; ?></a> (301 → wp-sitemap.xml)
+                <a href="<?php echo esc_url( $alias_url ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html( $alias_url ); ?></a> (301 → wp-sitemap.xml)
               <?php endif; ?>
             </td>
           </tr>
