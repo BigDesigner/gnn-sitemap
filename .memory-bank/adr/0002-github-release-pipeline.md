@@ -2,17 +2,18 @@
 
 - **Status**: Accepted
 - **Confidence**: Verified
-- **Date**: 2026-08-06
+- **Date**: 2026-11-20
 
 ## Context
-Automated packaging and distribution is required whenever a new version tag (e.g. `v1.1.1`) is pushed to the GitHub repository.
+Automated packaging and distribution is required whenever a new version tag (e.g. `v1.1.3`) is pushed to the GitHub repository.
 
 ## Decision
 Use GitHub Actions workflow (`.github/workflows/release.yml`) triggered on tag pushes (`v*`):
-1. Checkout code (`actions/checkout@v4`).
-2. Extract clean version string from tag ref (`v1.1.1` -> `1.1.1`).
-3. Package `gnn-sitemap/` directory into a distribution zip archive (`gnn-sitemap-1.1.1.zip`).
-4. Publish a GitHub Release using `softprops/action-gh-release@v2` with the zip artifact attached.
+1. Checkout code (`actions/checkout@v7`).
+2. Extract clean version string from tag ref (`v1.1.3` -> `1.1.3`).
+3. Verify PHP syntax (`php -l`) on all plugin PHP files and confirm `gnn-sitemap/VERSION` matches the tag.
+4. Package `gnn-sitemap/` directory into a distribution zip archive (`gnn-sitemap-1.1.3.zip`).
+5. Publish a GitHub Release using `softprops/action-gh-release@v3` with the zip artifact attached.
 
 ## Consequences
 - Releases are strictly tied to git tag format `v*`.

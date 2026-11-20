@@ -27,6 +27,7 @@
 |---|---|---|---|
 | `php -l gnn-sitemap/gnn-sitemap.php` | Syntax check main file | PHP CLI | Fast syntax check |
 | `php -l gnn-sitemap/includes/*.php` | Syntax check include files | PHP CLI | Fast syntax check |
+| `php -l gnn-sitemap/uninstall.php` | Syntax check uninstall script | PHP CLI | Fast syntax check |
 | `wp gnn-sitemap status` | Check sitemap status via WP-CLI | WP-CLI | Requires active WP site |
 | `wp gnn-sitemap flush` | Force regenerate sitemap via WP-CLI | WP-CLI | Flushes rules & cache |
 
@@ -34,9 +35,10 @@
 
 ## CI/CD Pipelines `[Verified]`
 - **Workflow File**: `.github/workflows/release.yml`
-- **Triggers**: Push on tag matching `v*` (e.g. `v1.1.1`)
+- **Triggers**: Push on tag matching `v*` (e.g. `v1.1.3`)
 - **Runner**: `ubuntu-latest`
-- **Artifact Output**: `build/gnn-sitemap-<version>.zip` attached to GitHub Release via `softprops/action-gh-release@v2`
+- **Checks**: Runs `php -l` on all PHP files and verifies `gnn-sitemap/VERSION` matches the git tag
+- **Artifact Output**: `build/gnn-sitemap-<version>.zip` attached to GitHub Release via `softprops/action-gh-release@v3`
 
 ---
 

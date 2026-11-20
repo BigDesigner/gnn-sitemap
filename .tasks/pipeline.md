@@ -8,14 +8,15 @@
 ---
 
 ## Immediate Next Actions
-- [ ] Run PHP linter check (`php -l`) on all plugin PHP files.
-- [ ] Verify GitHub release workflow behavior on tag creation.
+- [x] Run PHP linter check (`php -l`) on all plugin PHP files.
+- [x] Verify GitHub release workflow behavior on tag creation (`v1.1.3` run `44647121825`).
 
 ---
 
 ## Backlog
-- [ ] Add automated PHP syntax check job to GitHub Actions (`.github/workflows/release.yml` or dedicated CI check).
+- [x] Add automated PHP syntax check job to GitHub Actions (`.github/workflows/release.yml`).
 - [ ] Add unit test suite (PHPUnit) for `GNN_Sitemap_Updater` and `gnn_sitemap_force_regenerate()`.
+- [ ] Recompile `gnn-sitemap/languages/gnn-sitemap-tr_TR.mo` with `msgfmt` when a gettext environment is available.
 
 ---
 
