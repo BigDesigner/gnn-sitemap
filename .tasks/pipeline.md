@@ -1,9 +1,9 @@
 # Task Pipeline
 
 ## Current Project State
-- **Active Version**: v1.1.1
-- **Status**: Sentinel Memory Bank initialized.
-- **Sprint**: v1.1.1 maintenance & optimization.
+- **Active Version**: v1.1.3
+- **Status**: Hardened & up to date with WP 7.1 / PHP 7.4+ / GitHub Actions latest.
+- **Sprint**: v1.1.3 release.
 
 ---
 
@@ -26,4 +26,4 @@
 
 ## Release Readiness
 - **Release Package**: Auto-built via `.github/workflows/release.yml` on `v*` tag push.
-- **Version Files**: `gnn-sitemap/VERSION` (`1.1.1`) and `gnn-sitemap/gnn-sitemap.php` header (`1.1.1`) are in sync.
+- **Version Files**: `gnn-sitemap/VERSION` (`1.1.3`) and `gnn-sitemap/gnn-sitemap.php` header (`1.1.3`) are in sync.
