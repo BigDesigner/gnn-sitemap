@@ -40,22 +40,29 @@ class GNN_Sitemap_Updater {
 	}
 
 	/**
-	 * Resolve the installed plugin version from the version constant or plugin header.
+	 * Resolve the installed plugin version directly from the on-disk plugin header.
+	 * Reading from disk avoids stale in-memory constants during the same-request upgrade cycle.
 	 *
 	 * @return string
 	 */
 	private function get_local_version() {
+		$main_file = WP_PLUGIN_DIR . '/' . $this->plugin_basename;
+		if ( file_exists( $main_file ) ) {
+			if ( function_exists( 'clearstatcache' ) ) {
+				clearstatcache( true, $main_file );
+			}
+			$headers = get_file_data( $main_file, array( 'Version' => 'Version' ), 'plugin' );
+			if ( ! empty( $headers['Version'] ) ) {
+				return trim( (string) $headers['Version'] );
+			}
+		}
 		if ( defined( 'GNN_SITEMAP_VERSION' ) && GNN_SITEMAP_VERSION ) {
-			return GNN_SITEMAP_VERSION;
+			return (string) GNN_SITEMAP_VERSION;
 		}
 		if ( ! empty( $this->version ) ) {
-			return $this->version;
+			return (string) $this->version;
 		}
-		if ( ! function_exists( 'get_plugin_data' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/plugin.php';
-		}
-		$data = get_plugin_data( $this->plugin_file, false, false );
-		return ! empty( $data['Version'] ) ? $data['Version'] : '0.0.0';
+		return '0.0.0';
 	}
 
 	/**
